@@ -1,0 +1,23 @@
+# Build output
+target/
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# Eclipse / VS Code
+.classpath
+.project
+.settings/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local database (each person has their own)
+*.db
+
+# Logs
+*.log

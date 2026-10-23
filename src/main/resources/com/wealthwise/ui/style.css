@@ -1,0 +1,43 @@
+.root-pane {
+    -fx-background-color: #f4f6fa;
+    -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    -fx-font-size: 13px;
+}
+
+.app-title { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #1b3a5c; }
+.app-subtitle { -fx-font-size: 13px; -fx-text-fill: #6b7a8c; }
+.status-label { -fx-text-fill: #6b7a8c; -fx-font-style: italic; }
+
+.section-title { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #1b3a5c; }
+
+.card {
+    -fx-background-color: white;
+    -fx-background-radius: 10;
+    -fx-padding: 14 18 14 18;
+    -fx-spacing: 4;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 8, 0, 0, 2);
+}
+.card-title { -fx-font-size: 11px; -fx-text-fill: #8a97a8; -fx-font-weight: bold; }
+.card-value { -fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #1b3a5c; }
+
+.side-panel { -fx-background-color: white; -fx-background-radius: 0 12 12 0; }
+
+.buy-button {
+    -fx-background-color: #1f9d55; -fx-text-fill: white; -fx-font-weight: bold;
+    -fx-background-radius: 6; -fx-cursor: hand;
+}
+.sell-button {
+    -fx-background-color: #d64545; -fx-text-fill: white; -fx-font-weight: bold;
+    -fx-background-radius: 6; -fx-cursor: hand;
+}
+.buy-button:hover { -fx-background-color: #178046; }
+.sell-button:hover { -fx-background-color: #b83535; }
+
+.message-label.error { -fx-text-fill: #d64545; }
+.message-label.success { -fx-text-fill: #1f9d55; }
+
+.positive { -fx-text-fill: #1f9d55; }
+.negative { -fx-text-fill: #d64545; }
+
+.table-view { -fx-background-radius: 8; }
+.chart-title { -fx-font-size: 13px; }
