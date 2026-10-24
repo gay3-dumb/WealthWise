@@ -183,6 +183,8 @@ public class DashboardController {
                 .collect(Collectors.toList());
 
         holdingsTable.setItems(FXCollections.observableArrayList(holdings));
+        holdingsTable.refresh();
+
 
         double total = engine.getTotalValue();
         double pl = engine.getTotalProfitLoss();
