@@ -4,20 +4,27 @@ import com.wealthwise.db.DatabaseManager;
 import com.wealthwise.model.Holding;
 import com.wealthwise.model.Transaction;
 import com.wealthwise.price.PriceSimulator;
+import com.wealthwise.service.ConcentrationAnalyzer;
 import com.wealthwise.service.PortfolioEngine;
 import com.wealthwise.service.PortfolioException;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.PieChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextFormatter;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.Tooltip;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 
 import java.sql.SQLException;
@@ -25,6 +32,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -49,7 +57,11 @@ public class DashboardController {
     // table
     @FXML private TableView<Holding> holdingsTable;
     @FXML private TableColumn<Holding, String> colSymbol, colName;
-    @FXML private TableColumn<Holding, Number> colQty, colAvg, colPrice, colValue, colPL, colRet;
+    @FXML private TableColumn<Holding, Number> colQty, colAvg, colPrice, colValue, colAlloc, colPL, colRet;
+    // concentration
+    @FXML private Spinner<Integer> thresholdSpinner;
+    @FXML private Label concentrationStatusLabel;
+    @FXML private ListView<ConcentrationAnalyzer.ConcentrationWarning> warningList;
     // history + charts
     @FXML private ListView<String> historyList;
     @FXML private LineChart<String, Number> valueChart;
@@ -58,6 +70,9 @@ public class DashboardController {
     private PortfolioEngine engine;
     private DatabaseManager db;
     private PriceSimulator simulator;
+    private ConcentrationAnalyzer analyzer = new ConcentrationAnalyzer();
+    private Map<String, ConcentrationAnalyzer.Allocation> allocationsBySymbol = Map.of();
+    private int thresholdValue = (int) ConcentrationAnalyzer.DEFAULT_THRESHOLD_PERCENT;
     private final XYChart.Series<String, Number> valueSeries = new XYChart.Series<>();
     // a single background thread for database writes so the UI never waits on disk
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor(r -> {
@@ -72,6 +87,7 @@ public class DashboardController {
         this.db = db;
 
         setupTable();
+        setupConcentrationPanel();
         valueChart.getData().add(valueSeries);
 
         refreshAll();
@@ -91,6 +107,10 @@ public class DashboardController {
         colAvg.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().getAvgBuyPrice()));
         colPrice.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().getCurrentPrice()));
         colValue.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().getMarketValue()));
+        colAlloc.setCellValueFactory(c -> {
+            ConcentrationAnalyzer.Allocation allocation = allocationsBySymbol.get(c.getValue().getSymbol());
+            return new ReadOnlyObjectWrapper<>(allocation == null ? null : allocation.allocationPercent());
+        });
         colPL.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().getProfitLoss()));
         colRet.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().getReturnPercent()));
 
@@ -98,8 +118,26 @@ public class DashboardController {
         colAvg.setCellFactory(col -> numberCell("%.2f", false));
         colPrice.setCellFactory(col -> numberCell("%.2f", false));
         colValue.setCellFactory(col -> numberCell("%.2f", false));
+        colAlloc.setCellFactory(col -> allocationCell());
         colPL.setCellFactory(col -> numberCell("%+.2f", true));
         colRet.setCellFactory(col -> numberCell("%+.2f%%", true));
+    }
+
+    /** Allocation is looked up from the latest analyzer result; "—" means it is unavailable. */
+    private static javafx.scene.control.TableCell<Holding, Number> allocationCell() {
+        return new javafx.scene.control.TableCell<>() {
+            @Override
+            protected void updateItem(Number item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setText(null);
+                } else if (item == null) {
+                    setText("—");
+                } else {
+                    setText(String.format("%.1f%%", item.doubleValue()));
+                }
+            }
+        };
     }
 
     /** A table cell that formats numbers and (optionally) colours them green/red. */
@@ -119,6 +157,65 @@ public class DashboardController {
                 }
             }
         };
+    }
+
+    // ---------------- concentration panel setup ----------------
+
+    private void setupConcentrationPanel() {
+        thresholdSpinner.setValueFactory(
+                new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 100, thresholdValue));
+        thresholdSpinner.setEditable(true);
+        thresholdSpinner.setTooltip(new Tooltip(
+                "Assets whose share of portfolio value exceeds this percentage trigger a warning."));
+
+        // Only digits, so the editor can never contain a non-numeric value.
+        thresholdSpinner.getEditor().setTextFormatter(new TextFormatter<String>(change ->
+                !change.isContentChange() || change.getControlNewText().matches("\\d{1,3}")
+                        ? change : null));
+
+        // Commit typed text on Enter and when the editor loses focus.
+        thresholdSpinner.getEditor().addEventHandler(ActionEvent.ACTION,
+                event -> thresholdSpinner.increment(0));
+        thresholdSpinner.getEditor().focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (!isFocused) {
+                thresholdSpinner.increment(0);
+            }
+        });
+
+        thresholdSpinner.valueProperty().addListener((obs, oldValue, newValue) -> {
+            if (newValue == null) {
+                return;
+            }
+            // The value factory clamps too, but clamp here so the analyzer never sees an
+            // intermediate out-of-range value.
+            int selected = Math.max(1, Math.min(100, newValue));
+            if (selected != newValue) {
+                thresholdSpinner.getValueFactory().setValue(selected);
+            }
+            if (selected == thresholdValue) {
+                return;
+            }
+            thresholdValue = selected;
+            analyzer = new ConcentrationAnalyzer(selected);
+            // Concentration settings do not change portfolio value history.
+            refreshAll(false);
+        });
+
+        warningList.setCellFactory(list -> new ListCell<>() {
+            @Override
+            protected void updateItem(ConcentrationAnalyzer.ConcentrationWarning warning,
+                                      boolean empty) {
+                super.updateItem(warning, empty);
+                if (empty || warning == null) {
+                    setText(null);
+                    setTooltip(null);
+                } else {
+                    setText(String.format("%s  %.1f%% (limit %.1f%%)", warning.symbol(),
+                            warning.allocationPercent(), warning.thresholdPercent()));
+                    setTooltip(new Tooltip(warning.message()));
+                }
+            }
+        });
     }
 
     // ---------------- button handlers ----------------
@@ -211,13 +308,24 @@ public class DashboardController {
     // ---------------- refreshing the screen (always on the FX thread) ----------------
 
     private void refreshAll() {
+        refreshAll(true);
+    }
+
+    private void refreshAll(boolean recordChartPoint) {
         List<Holding> holdings = engine.getHoldings().stream()
                 .sorted(Comparator.comparing(Holding::getSymbol))
                 .collect(Collectors.toList());
 
+        ConcentrationAnalyzer.ConcentrationResult concentration = analyzer.analyze(holdings);
+        allocationsBySymbol = concentration.allocations().stream()
+                .collect(Collectors.toUnmodifiableMap(
+                        ConcentrationAnalyzer.Allocation::symbol,
+                        allocation -> allocation));
+
         holdingsTable.setItems(FXCollections.observableArrayList(holdings));
         holdingsTable.refresh();
 
+        updateConcentrationPanel(concentration, holdings.isEmpty());
 
         double total = engine.getTotalValue();
         double pl = engine.getTotalProfitLoss();
@@ -242,10 +350,50 @@ public class DashboardController {
                         .collect(Collectors.toList())));
 
         // live line chart of total value
-        valueSeries.getData().add(new XYChart.Data<>(LocalTime.now().format(TIME_FMT), total));
-        if (valueSeries.getData().size() > MAX_CHART_POINTS) {
-            valueSeries.getData().remove(0);
+        if (recordChartPoint) {
+            valueSeries.getData().add(new XYChart.Data<>(LocalTime.now().format(TIME_FMT), total));
+            if (valueSeries.getData().size() > MAX_CHART_POINTS) {
+                valueSeries.getData().remove(0);
+            }
         }
+    }
+
+    private void updateConcentrationPanel(ConcentrationAnalyzer.ConcentrationResult result,
+                                          boolean portfolioEmpty) {
+        concentrationStatusLabel.getStyleClass().removeAll(
+                "concentration-ok", "concentration-warning", "concentration-neutral");
+
+        if (!result.hasValidTotal()) {
+            concentrationStatusLabel.setText(portfolioEmpty
+                    ? "No holdings to analyze yet."
+                    : "Allocation unavailable for the current holdings.");
+            concentrationStatusLabel.getStyleClass().add("concentration-neutral");
+            warningList.getItems().clear();
+            setWarningsVisible(false);
+            return;
+        }
+
+        List<ConcentrationAnalyzer.ConcentrationWarning> warnings = result.warnings();
+        if (warnings.isEmpty()) {
+            concentrationStatusLabel.setText(String.format(
+                    "No assets exceed the %.1f%% threshold.", result.thresholdPercent()));
+            concentrationStatusLabel.getStyleClass().add("concentration-ok");
+            warningList.getItems().clear();
+            setWarningsVisible(false);
+            return;
+        }
+
+        String verb = warnings.size() == 1 ? "asset exceeds" : "assets exceed";
+        concentrationStatusLabel.setText(String.format("%d %s the %.1f%% threshold.",
+                warnings.size(), verb, result.thresholdPercent()));
+        concentrationStatusLabel.getStyleClass().add("concentration-warning");
+        warningList.setItems(FXCollections.observableArrayList(warnings));
+        setWarningsVisible(true);
+    }
+
+    private void setWarningsVisible(boolean visible) {
+        warningList.setVisible(visible);
+        warningList.setManaged(visible);
     }
 
     private void colourLabel(Label label, double value) {

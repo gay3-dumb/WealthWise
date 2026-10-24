@@ -52,3 +52,31 @@
     -fx-cursor: hand;
 }
 .sellall-button:hover { -fx-background-color: #fdeaea; }
+
+.concentration-panel {
+    -fx-background-color: #f8fafc;
+    -fx-border-color: #dfe6ef;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 10;
+}
+.concentration-panel .section-title { -fx-font-size: 13px; }
+
+.concentration-status { -fx-font-size: 12px; }
+.concentration-status.concentration-neutral { -fx-text-fill: #6b7a8c; }
+.concentration-status.concentration-ok { -fx-text-fill: #1f9d55; }
+.concentration-status.concentration-warning { -fx-text-fill: #b83535; -fx-font-weight: bold; }
+
+.warning-list {
+    -fx-background-color: #fdf3f3;
+    -fx-border-color: #efcaca;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+.warning-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #a33a3a;
+    -fx-font-size: 12px;
+    -fx-padding: 3 6 3 6;
+}
+.warning-list .list-cell:filled:hover { -fx-background-color: #f8e3e3; }
