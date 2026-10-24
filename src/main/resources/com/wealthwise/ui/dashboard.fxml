@@ -7,10 +7,11 @@
 <?import javafx.scene.chart.PieChart?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.Spinner?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
-<?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.ToggleButton?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
@@ -70,6 +71,18 @@
             </HBox>
             <Button text="Sell All Holdings" onAction="#onSellAll" styleClass="sellall-button" maxWidth="Infinity"/>
             <Label fx:id="messageLabel" wrapText="true" styleClass="message-label"/>
+            <VBox spacing="6" styleClass="concentration-panel">
+                <Label text="Portfolio Concentration" styleClass="section-title"/>
+                <HBox spacing="6" alignment="CENTER_LEFT">
+                    <Label text="Warn above"/>
+                    <Spinner fx:id="thresholdSpinner" prefWidth="72" editable="true"/>
+                    <Label text="\%"/>
+                </HBox>
+                <Label fx:id="concentrationStatusLabel" wrapText="true"
+                       styleClass="concentration-status" text="No holdings to analyze yet."/>
+                <ListView fx:id="warningList" styleClass="warning-list"
+                          prefHeight="96" minHeight="40" visible="false" managed="false"/>
+            </VBox>
             <Label text="Transaction history" styleClass="section-title"/>
             <ListView fx:id="historyList" VBox.vgrow="ALWAYS"/>
         </VBox>
@@ -82,14 +95,15 @@
             <Label text="Holdings" styleClass="section-title"/>
             <TableView fx:id="holdingsTable" VBox.vgrow="ALWAYS">
                 <columns>
-                    <TableColumn fx:id="colSymbol" text="Symbol" prefWidth="80"/>
-                    <TableColumn fx:id="colName" text="Name" prefWidth="150"/>
-                    <TableColumn fx:id="colQty" text="Qty" prefWidth="70"/>
-                    <TableColumn fx:id="colAvg" text="Avg Buy" prefWidth="90"/>
-                    <TableColumn fx:id="colPrice" text="Price" prefWidth="90"/>
-                    <TableColumn fx:id="colValue" text="Value" prefWidth="100"/>
-                    <TableColumn fx:id="colPL" text="P/L" prefWidth="90"/>
-                    <TableColumn fx:id="colRet" text="Return" prefWidth="80"/>
+                    <TableColumn fx:id="colSymbol" text="Symbol" prefWidth="75"/>
+                    <TableColumn fx:id="colName" text="Name" prefWidth="125"/>
+                    <TableColumn fx:id="colQty" text="Qty" prefWidth="60"/>
+                    <TableColumn fx:id="colAvg" text="Avg Buy" prefWidth="85"/>
+                    <TableColumn fx:id="colPrice" text="Price" prefWidth="85"/>
+                    <TableColumn fx:id="colValue" text="Value" prefWidth="95"/>
+                    <TableColumn fx:id="colAlloc" text="Allocation %" prefWidth="95"/>
+                    <TableColumn fx:id="colPL" text="P/L" prefWidth="85"/>
+                    <TableColumn fx:id="colRet" text="Return" prefWidth="75"/>
                 </columns>
             </TableView>
             <HBox spacing="12" VBox.vgrow="ALWAYS">
