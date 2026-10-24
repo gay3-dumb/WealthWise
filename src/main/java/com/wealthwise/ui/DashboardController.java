@@ -28,6 +28,9 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import java.util.Optional;
 
 /**
  * Presentation layer (Layer 1). Handles clicks and displays data. It contains no business
@@ -128,6 +131,36 @@ public class DashboardController {
     @FXML
     private void onSell() {
         executeTrade(false);
+    }
+
+    @FXML
+    private void onSellAll() {
+        List<Holding> current = engine.getHoldings();
+        if (current.isEmpty()) {
+            showMessage("You have no holdings to sell.", true);
+            return;
+        }
+
+        Alert alert = new Alert(Alert.AlertType.WARNING,
+                String.format("This will sell ALL %d holdings at their current prices (total value %,.2f). This cannot be undone.",
+                        current.size(), engine.getTotalValue()),
+                ButtonType.OK, ButtonType.CANCEL);
+        alert.setTitle("Sell all holdings");
+        alert.setHeaderText("Are you sure?");
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            try {
+                for (Holding h : current) {
+                    engine.sell(h.getSymbol(), h.getQuantity(), h.getCurrentPrice());
+                }
+                showMessage("Sold all holdings.", false);
+            } catch (PortfolioException e) {
+                showMessage(e.getMessage(), true);
+            }
+            refreshAll();
+            saveAsync();
+        }
     }
 
     private void executeTrade(boolean isBuy) {

@@ -68,6 +68,7 @@
                 <Button text="Buy" onAction="#onBuy" styleClass="buy-button" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
                 <Button text="Sell" onAction="#onSell" styleClass="sell-button" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
             </HBox>
+            <Button text="Sell All Holdings" onAction="#onSellAll" styleClass="sellall-button" maxWidth="Infinity"/>
             <Label fx:id="messageLabel" wrapText="true" styleClass="message-label"/>
             <Label text="Transaction history" styleClass="section-title"/>
             <ListView fx:id="historyList" VBox.vgrow="ALWAYS"/>
