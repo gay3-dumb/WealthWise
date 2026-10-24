@@ -41,3 +41,14 @@
 
 .table-view { -fx-background-radius: 8; }
 .chart-title { -fx-font-size: 13px; }
+
+.sellall-button {
+    -fx-background-color: transparent;
+    -fx-border-color: #d64545;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-text-fill: #d64545;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+}
+.sellall-button:hover { -fx-background-color: #fdeaea; }
