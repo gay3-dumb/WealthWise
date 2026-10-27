@@ -2,12 +2,12 @@ package com.wealthwise.price;
 
 import com.wealthwise.model.Holding;
 import com.wealthwise.service.PortfolioEngine;
+import com.wealthwise.service.PriceAlertService;
 
 import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 /**
  * Background price engine (Layer 3). This is the "multi-threaded" part of the project.
@@ -20,6 +20,7 @@ import java.util.function.Consumer;
 public class PriceSimulator {
 
     private final PortfolioEngine engine;
+    private final PriceAlertService alertService;
     private final Runnable onTick;
     private final Random random = new Random();
     private ScheduledExecutorService executor;
@@ -28,7 +29,13 @@ public class PriceSimulator {
     private final double maxChange;
 
     public PriceSimulator(PortfolioEngine engine, Runnable onTick, double maxChange) {
+        this(engine, null, onTick, maxChange);
+    }
+
+    public PriceSimulator(PortfolioEngine engine, PriceAlertService alertService,
+                          Runnable onTick, double maxChange) {
         this.engine = engine;
+        this.alertService = alertService;
         this.onTick = onTick;
         this.maxChange = maxChange;
     }
@@ -62,7 +69,11 @@ public class PriceSimulator {
             for (Holding h : engine.getHoldings()) {
                 double change = (random.nextDouble() * 2 - 1) * maxChange;   // -max .. +max
                 double newPrice = Math.max(0.01, h.getCurrentPrice() * (1 + change));
-                engine.updatePrice(h.getSymbol(), Math.round(newPrice * 100.0) / 100.0);
+                double roundedPrice = Math.round(newPrice * 100.0) / 100.0;
+                engine.updatePrice(h.getSymbol(), roundedPrice);
+                if (alertService != null) {
+                    alertService.evaluatePrice(h.getSymbol(), roundedPrice);
+                }
             }
             if (onTick != null) {
                 onTick.run();

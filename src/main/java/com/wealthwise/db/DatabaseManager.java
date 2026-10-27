@@ -1,6 +1,7 @@
 package com.wealthwise.db;
 
 import com.wealthwise.model.Holding;
+import com.wealthwise.model.PriceAlert;
 import com.wealthwise.model.Transaction;
 
 import java.sql.Connection;
@@ -9,6 +10,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +50,18 @@ public class DatabaseManager {
                     quantity REAL NOT NULL,
                     price REAL NOT NULL,
                     timestamp TEXT NOT NULL
+                )""");
+            s.execute("""
+                CREATE TABLE IF NOT EXISTS price_alerts (
+                    id INTEGER PRIMARY KEY,
+                    symbol TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    target_price REAL NOT NULL,
+                    condition_type TEXT NOT NULL,
+                    active INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    triggered_at TEXT,
+                    triggered_price REAL
                 )""");
         }
     }
@@ -113,6 +127,75 @@ public class DatabaseManager {
             while (rs.next()) {
                 list.add(new Transaction(rs.getInt(1), rs.getString(2), Transaction.Type.valueOf(rs.getString(3)),
                         rs.getDouble(4), rs.getDouble(5), LocalDateTime.parse(rs.getString(6))));
+            }
+        }
+        return list;
+    }
+
+    /** Replace the stored alert snapshot, including triggered state, in one transaction. */
+    public void saveAlerts(List<PriceAlert> alerts) throws SQLException {
+        try (Connection c = connect()) {
+            c.setAutoCommit(false);
+            try {
+                try (Statement s = c.createStatement()) {
+                    s.executeUpdate("DELETE FROM price_alerts");
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO price_alerts(id, symbol, name, target_price, condition_type, active, "
+                                + "created_at, triggered_at, triggered_price) VALUES (?,?,?,?,?,?,?,?,?)")) {
+                    for (PriceAlert alert : alerts) {
+                        ps.setInt(1, alert.getId());
+                        ps.setString(2, alert.getSymbol());
+                        ps.setString(3, alert.getName());
+                        ps.setDouble(4, alert.getTargetPrice());
+                        ps.setString(5, alert.getCondition().name());
+                        ps.setInt(6, alert.isActive() ? 1 : 0);
+                        ps.setString(7, alert.getCreatedAt().toString());
+                        if (alert.getTriggeredAt() == null) {
+                            ps.setNull(8, Types.VARCHAR);
+                        } else {
+                            ps.setString(8, alert.getTriggeredAt().toString());
+                        }
+                        if (alert.getTriggeredPrice() == null) {
+                            ps.setNull(9, Types.REAL);
+                        } else {
+                            ps.setDouble(9, alert.getTriggeredPrice());
+                        }
+                        ps.addBatch();
+                    }
+                    ps.executeBatch();
+                }
+                c.commit();
+            } catch (SQLException e) {
+                c.rollback();
+                throw e;
+            }
+        }
+    }
+
+    public List<PriceAlert> loadAlerts() throws SQLException {
+        List<PriceAlert> list = new ArrayList<>();
+        try (Connection c = connect();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT id, symbol, name, target_price, condition_type, active, created_at, "
+                             + "triggered_at, triggered_price FROM price_alerts ORDER BY id");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String triggeredAtText = rs.getString(8);
+                LocalDateTime triggeredAt = triggeredAtText == null ? null : LocalDateTime.parse(triggeredAtText);
+                double triggeredPriceValue = rs.getDouble(9);
+                Double triggeredPrice = rs.wasNull() ? null : triggeredPriceValue;
+
+                list.add(new PriceAlert(
+                        rs.getInt(1),
+                        rs.getString(2),
+                        rs.getString(3),
+                        rs.getDouble(4),
+                        PriceAlert.Condition.valueOf(rs.getString(5)),
+                        rs.getInt(6) != 0,
+                        LocalDateTime.parse(rs.getString(7)),
+                        triggeredAt,
+                        triggeredPrice));
             }
         }
         return list;

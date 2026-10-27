@@ -8,6 +8,7 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Spinner?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
@@ -29,6 +30,10 @@
                 <Label text="Portfolio &amp; Wealth Dashboard" styleClass="app-subtitle"/>
                 <HBox HBox.hgrow="ALWAYS"/>
                 <Label fx:id="statusLabel" styleClass="status-label"/>
+                <Button fx:id="alertsButton" text="Price Alerts"
+                        onAction="#onManageAlerts" styleClass="toolbar-button"/>
+                <Button text="Export CSV" onAction="#onExportPortfolio"
+                        styleClass="toolbar-button"/>
                 <ToggleButton fx:id="simToggle" text="Pause prices" onAction="#onToggleSimulation"/>
             </HBox>
             <HBox spacing="14">
@@ -49,43 +54,53 @@
                     <Label fx:id="returnLabel" styleClass="card-value" text="0.00%"/>
                 </VBox>
             </HBox>
+            <HBox fx:id="notificationBar" spacing="10" alignment="CENTER_LEFT"
+                  styleClass="alert-notification" visible="false" managed="false">
+                <Label fx:id="notificationLabel" styleClass="alert-notification-text"
+                       wrapText="true" HBox.hgrow="ALWAYS"/>
+                <Button text="Dismiss" onAction="#onDismissNotifications"
+                        styleClass="notification-dismiss-button"/>
+            </HBox>
         </VBox>
     </top>
 
     <!-- ============ LEFT: add investment / buy-sell form ============ -->
     <left>
-        <VBox spacing="10" styleClass="side-panel" prefWidth="260">
-            <padding><Insets top="12" right="16" bottom="12" left="20"/></padding>
-            <Label text="Record a Trade" styleClass="section-title"/>
-            <Label text="Symbol (e.g. AAPL)"/>
-            <TextField fx:id="symbolField" promptText="AAPL"/>
-            <Label text="Asset name (new assets)"/>
-            <TextField fx:id="nameField" promptText="Apple Inc."/>
-            <Label text="Quantity"/>
-            <TextField fx:id="quantityField" promptText="10"/>
-            <Label text="Price per unit"/>
-            <TextField fx:id="priceField" promptText="150.00"/>
-            <HBox spacing="10">
-                <Button text="Buy" onAction="#onBuy" styleClass="buy-button" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
-                <Button text="Sell" onAction="#onSell" styleClass="sell-button" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
-            </HBox>
-            <Button text="Sell All Holdings" onAction="#onSellAll" styleClass="sellall-button" maxWidth="Infinity"/>
-            <Label fx:id="messageLabel" wrapText="true" styleClass="message-label"/>
-            <VBox spacing="6" styleClass="concentration-panel">
-                <Label text="Portfolio Concentration" styleClass="section-title"/>
-                <HBox spacing="6" alignment="CENTER_LEFT">
-                    <Label text="Warn above"/>
-                    <Spinner fx:id="thresholdSpinner" prefWidth="72" editable="true"/>
-                    <Label text="\%"/>
+        <ScrollPane fx:id="sideScroll" fitToWidth="true" hbarPolicy="NEVER"
+                    vbarPolicy="AS_NEEDED" prefWidth="260" styleClass="side-scroll">
+            <VBox fx:id="sidePanel" spacing="10" styleClass="side-panel" prefWidth="260">
+                <padding><Insets top="12" right="16" bottom="12" left="20"/></padding>
+                <Label text="Record a Trade" styleClass="section-title"/>
+                <Label text="Symbol (e.g. AAPL)"/>
+                <TextField fx:id="symbolField" promptText="AAPL"/>
+                <Label text="Asset name (new assets)"/>
+                <TextField fx:id="nameField" promptText="Apple Inc."/>
+                <Label text="Quantity"/>
+                <TextField fx:id="quantityField" promptText="10"/>
+                <Label text="Price per unit"/>
+                <TextField fx:id="priceField" promptText="150.00"/>
+                <HBox spacing="10">
+                    <Button text="Buy" onAction="#onBuy" styleClass="buy-button" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                    <Button text="Sell" onAction="#onSell" styleClass="sell-button" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
                 </HBox>
-                <Label fx:id="concentrationStatusLabel" wrapText="true"
-                       styleClass="concentration-status" text="No holdings to analyze yet."/>
-                <ListView fx:id="warningList" styleClass="warning-list"
-                          prefHeight="96" minHeight="40" visible="false" managed="false"/>
+                <Button text="Sell All Holdings" onAction="#onSellAll" styleClass="sellall-button" maxWidth="Infinity"/>
+                <Label fx:id="messageLabel" wrapText="true" styleClass="message-label"/>
+                <VBox spacing="6" styleClass="concentration-panel">
+                    <Label text="Portfolio Concentration" styleClass="section-title"/>
+                    <HBox spacing="6" alignment="CENTER_LEFT">
+                        <Label text="Warn above"/>
+                        <Spinner fx:id="thresholdSpinner" prefWidth="72" editable="true"/>
+                        <Label text="\%"/>
+                    </HBox>
+                    <Label fx:id="concentrationStatusLabel" wrapText="true"
+                           styleClass="concentration-status" text="No holdings to analyze yet."/>
+                    <ListView fx:id="warningList" styleClass="warning-list"
+                              prefHeight="96" minHeight="40" visible="false" managed="false"/>
+                </VBox>
+                <Label text="Transaction history" styleClass="section-title"/>
+                <ListView fx:id="historyList" VBox.vgrow="ALWAYS"/>
             </VBox>
-            <Label text="Transaction history" styleClass="section-title"/>
-            <ListView fx:id="historyList" VBox.vgrow="ALWAYS"/>
-        </VBox>
+        </ScrollPane>
     </left>
 
     <!-- ============ CENTER: holdings table + charts ============ -->

@@ -1,22 +1,33 @@
 package com.wealthwise.ui;
 
 import com.wealthwise.db.DatabaseManager;
+import com.wealthwise.export.PortfolioCsvExporter;
 import com.wealthwise.model.Holding;
+import com.wealthwise.model.PriceAlert;
 import com.wealthwise.model.Transaction;
 import com.wealthwise.price.PriceSimulator;
 import com.wealthwise.service.ConcentrationAnalyzer;
 import com.wealthwise.service.PortfolioEngine;
 import com.wealthwise.service.PortfolioException;
+import com.wealthwise.service.PriceAlertService;
 import javafx.application.Platform;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.PieChart;
 import javafx.scene.chart.XYChart;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TableColumn;
@@ -25,20 +36,27 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
-import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
+import javafx.stage.Modality;
+import javafx.stage.Window;
 
+import java.io.File;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayDeque;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-import java.util.Optional;
 
 /**
  * Presentation layer (Layer 1). Handles clicks and displays data. It contains no business
@@ -51,6 +69,13 @@ public class DashboardController {
 
     // summary cards
     @FXML private Label totalValueLabel, investedLabel, profitLossLabel, returnLabel, statusLabel, messageLabel;
+    // toolbar + notifications
+    @FXML private Button alertsButton;
+    @FXML private HBox notificationBar;
+    @FXML private Label notificationLabel;
+    // scrollable sidebar
+    @FXML private ScrollPane sideScroll;
+    @FXML private VBox sidePanel;
     // form
     @FXML private TextField symbolField, nameField, quantityField, priceField;
     @FXML private ToggleButton simToggle;
@@ -69,10 +94,14 @@ public class DashboardController {
 
     private PortfolioEngine engine;
     private DatabaseManager db;
+    private PriceAlertService alertService;
     private PriceSimulator simulator;
     private ConcentrationAnalyzer analyzer = new ConcentrationAnalyzer();
     private Map<String, ConcentrationAnalyzer.Allocation> allocationsBySymbol = Map.of();
     private int thresholdValue = (int) ConcentrationAnalyzer.DEFAULT_THRESHOLD_PERCENT;
+    private Dialog<Void> alertsDialog;
+    private PriceAlertsController alertsDialogController;
+    private final Deque<String> notifications = new ArrayDeque<>();
     private final XYChart.Series<String, Number> valueSeries = new XYChart.Series<>();
     // a single background thread for database writes so the UI never waits on disk
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor(r -> {
@@ -82,18 +111,30 @@ public class DashboardController {
     });
 
     /** Called by Main after the FXML has loaded. */
-    public void setup(PortfolioEngine engine, DatabaseManager db) {
+    public void setup(PortfolioEngine engine, DatabaseManager db, PriceAlertService alertService) {
         this.engine = engine;
         this.db = db;
+        this.alertService = alertService;
+
+        // Fill the sidebar viewport when content is short, but let it scroll when content is tall.
+        sideScroll.viewportBoundsProperty().addListener((obs, oldBounds, newBounds) -> {
+            if (newBounds != null) {
+                sidePanel.setMinHeight(Math.max(0, newBounds.getHeight() - 1));
+            }
+        });
 
         setupTable();
         setupConcentrationPanel();
         valueChart.getData().add(valueSeries);
+        alertService.setTriggerListener(
+                alert -> Platform.runLater(() -> handleTriggeredAlert(alert)));
+        updateAlertSummary();
 
         refreshAll();
 
         // Step 4: background price simulation. It calls refreshAll via Platform.runLater.
-        simulator = new PriceSimulator(engine, () -> Platform.runLater(this::refreshAll), 0.02);
+        simulator = new PriceSimulator(engine, alertService,
+                () -> Platform.runLater(this::refreshAll), 0.02);
         simulator.start(2);
         statusLabel.setText("Prices updating every 2s");
     }
@@ -305,6 +346,152 @@ public class DashboardController {
         }
     }
 
+    // ---------------- price alerts + export ----------------
+
+    @FXML
+    private void onManageAlerts() {
+        if (alertsDialog != null && alertsDialog.isShowing()) {
+            alertsDialog.getDialogPane().requestFocus();
+            return;
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/wealthwise/ui/price-alerts.fxml"));
+            DialogPane pane = loader.load();
+            pane.getStylesheets().add(
+                    getClass().getResource("/com/wealthwise/ui/style.css").toExternalForm());
+
+            Dialog<Void> dialog = new Dialog<>();
+            dialog.setTitle("Price Alerts");
+            dialog.setDialogPane(pane);
+            dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+            dialog.setResizable(true);
+            Window owner = alertsButton.getScene() == null
+                    ? null
+                    : alertsButton.getScene().getWindow();
+            if (owner != null) {
+                dialog.initOwner(owner);
+                dialog.initModality(Modality.WINDOW_MODAL);
+            }
+
+            PriceAlertsController alertsController = loader.getController();
+            alertsController.setup(engine, alertService, this::onAlertsChanged);
+            alertsDialog = dialog;
+            alertsDialogController = alertsController;
+            dialog.setOnHidden(event -> {
+                alertsDialog = null;
+                alertsDialogController = null;
+                updateAlertSummary();
+            });
+            dialog.showAndWait();
+        } catch (IOException | RuntimeException e) {
+            showMessage("Could not open price alerts: " + e.getMessage(), true);
+        }
+    }
+
+    @FXML
+    private void onDismissNotifications() {
+        notifications.clear();
+        notificationLabel.setText("");
+        notificationBar.setVisible(false);
+        notificationBar.setManaged(false);
+    }
+
+    @FXML
+    private void onExportPortfolio() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Export WealthWise Portfolio");
+        chooser.setInitialFileName("wealthwise_portfolio.csv");
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("CSV files (*.csv)", "*.csv"));
+
+        Window owner = totalValueLabel.getScene() == null
+                ? null
+                : totalValueLabel.getScene().getWindow();
+        File selected = chooser.showSaveDialog(owner);
+        if (selected == null) {
+            return;
+        }
+
+        File target = selected;
+        if (!target.getName().toLowerCase(Locale.ROOT).endsWith(".csv")) {
+            String fileName = target.getName() + ".csv";
+            target = target.getParentFile() == null
+                    ? new File(fileName)
+                    : new File(target.getParentFile(), fileName);
+        }
+
+        try {
+            new PortfolioCsvExporter().writeCsv(engine, target.toPath());
+            showMessage("Portfolio exported to " + target.getName() + ".", false);
+        } catch (IOException | RuntimeException e) {
+            String detail = e.getMessage() == null || e.getMessage().isBlank()
+                    ? e.getClass().getSimpleName()
+                    : e.getMessage();
+            showMessage("Export failed: " + detail, true);
+        }
+    }
+
+    private void handleTriggeredAlert(PriceAlert alert) {
+        String asset = alert.getName().equals(alert.getSymbol())
+                ? alert.getSymbol()
+                : alert.getSymbol() + " (" + alert.getName() + ")";
+        double actualPrice = alert.getTriggeredPrice() == null ? 0.0 : alert.getTriggeredPrice();
+        String message = String.format("%s: price %,.2f %s target %,.2f.",
+                asset, actualPrice, alert.getCondition().getNotificationPhrase(),
+                alert.getTargetPrice());
+
+        notifications.addFirst(message);
+        while (notifications.size() > 4) {
+            notifications.removeLast();
+        }
+        notificationLabel.setText(String.join("\n", notifications));
+        notificationBar.setVisible(true);
+        notificationBar.setManaged(true);
+
+        updateAlertSummary();
+        if (alertsDialogController != null) {
+            alertsDialogController.refreshAlertList();
+            alertsDialogController.refreshLiveData();
+        }
+        saveAlertsAsync();
+    }
+
+    private void onAlertsChanged() {
+        updateAlertSummary();
+        saveAlertsAsync();
+    }
+
+    private void updateAlertSummary() {
+        if (alertsButton == null || alertService == null) {
+            return;
+        }
+        int active = alertService.getActiveCount();
+        int triggered = alertService.getTriggeredCount();
+        if (active > 0) {
+            alertsButton.setText("Price Alerts (" + active + " active)");
+        } else if (triggered > 0) {
+            alertsButton.setText("Price Alerts (" + triggered + " triggered)");
+        } else {
+            alertsButton.setText("Price Alerts");
+        }
+        alertsButton.setTooltip(new Tooltip(
+                String.format("%d active, %d triggered", active, triggered)));
+    }
+
+    private void saveAlertsAsync() {
+        List<PriceAlert> snapshot = alertService.getAlerts();
+        dbExecutor.submit(() -> {
+            try {
+                db.saveAlerts(snapshot);
+            } catch (SQLException e) {
+                Platform.runLater(
+                        () -> showMessage("Could not save alerts: " + e.getMessage(), true));
+            }
+        });
+    }
+
     // ---------------- refreshing the screen (always on the FX thread) ----------------
 
     private void refreshAll() {
@@ -355,6 +542,10 @@ public class DashboardController {
             if (valueSeries.getData().size() > MAX_CHART_POINTS) {
                 valueSeries.getData().remove(0);
             }
+        }
+
+        if (alertsDialogController != null) {
+            alertsDialogController.refreshLiveData();
         }
     }
 
@@ -436,6 +627,11 @@ public class DashboardController {
         }
         try {
             db.saveAll(engine.getHoldings(), engine.getTransactions());
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        try {
+            db.saveAlerts(alertService.getAlerts());
         } catch (SQLException e) {
             e.printStackTrace();
         }
