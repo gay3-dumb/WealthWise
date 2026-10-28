@@ -1,6 +1,6 @@
 # WealthWise - Portfolio & Wealth Dashboard
 
-WealthWise is a JavaFX desktop application for tracking a simulated investment portfolio. It lets you buy and sell assets, watch prices change in real time, review allocation and concentration warnings, and keep your data in a local SQLite database.
+WealthWise is a JavaFX desktop application for tracking a simulated investment portfolio. It lets you buy and sell assets, watch prices change, review concentration warnings, and keep data in a local SQLite database.
 
 This project was built as a Semester 3 end-semester project for the course Advanced Java Programming.
 
@@ -8,26 +8,26 @@ This project was built as a Semester 3 end-semester project for the course Advan
 
 - Buy and sell assets with input validation.
 - Weighted-average buy price and protection against selling more than you own.
-- Holdings table with quantity, average buy price, current price, value, allocation, profit/loss, and return.
-- Summary cards for total value, invested amount, profit/loss, and return.
-- Background price simulator that updates held assets every 2 seconds, with pause and resume controls.
-- Portfolio concentration panel that warns when an asset exceeds a configurable threshold (default 30%).
-- Live portfolio value line chart and allocation pie chart.
-- Transaction history and a Sell All Holdings action with a confirmation dialog.
-- Automatic saving to SQLite and loading on the next launch.
+- Holdings table with quantity, prices, value, allocation, P/L, and return.
+- Summary cards for total value, invested, profit/loss, and return.
+- Background price simulator (2-second updates, pause/resume), value chart, and allocation pie chart.
+- Price alerts with upward or downward targets, checked on each simulated price update and saved across restarts.
+- Portfolio concentration panel that warns above a configurable threshold (default 30%).
+- Transaction history, Sell All confirmation, and a scrollable sidebar for smaller windows.
+- CSV export of the summary, holdings, allocation, and transactions; automatic saving to SQLite.
 
-Prices are simulated locally. They are not real market prices.
+Prices are simulated, not real market data.
 
 ## Tech Stack
 
 - Java 21
 - JavaFX 21.0.5 (Controls and FXML)
-- FXML and CSS for the interface
+- FXML and CSS interface
 - SQLite via sqlite-jdbc 3.46.1.3
 - Maven with javafx-maven-plugin 0.0.8
 - JUnit 5 (Jupiter 5.10.2) for tests
 
-The code is split into layers: `ui` (controller and FXML), `service` and `model` (portfolio rules and concentration analysis), `price` (background simulator), and `db` (SQLite access).
+The code is split into layers: `ui` (controllers, FXML), `service`/`model` (portfolio, alerts, concentration), `price` (simulator), `export` (CSV), and `db` (SQLite).
 
 ## Getting Started
 
@@ -37,7 +37,7 @@ The code is split into layers: `ui` (controller and FXML), `service` and `model`
 - Maven 3.9 or newer
 - No separate database server is needed
 
-JavaFX and SQLite dependencies are downloaded by Maven.
+Dependencies are downloaded by Maven.
 
 ### Installation
 
@@ -51,7 +51,7 @@ mvn clean install
 
 ### Configuration
 
-No configuration is required. On first launch the application creates `wealthwise.db` in the directory you run it from. The database stores holdings and transactions, and is loaded automatically the next time you start the app.
+No configuration is required. On first launch the app creates `wealthwise.db` in the working directory; it stores holdings, transactions, and alerts and loads them automatically.
 
 ## Usage
 
@@ -63,14 +63,14 @@ mvn javafx:run
 
 Then:
 
-1. Enter a symbol, an optional asset name, quantity, and price. The name defaults to the symbol for a new asset.
-2. Click Buy to add the position or Sell to reduce it. Quantity and price must be greater than zero, and you cannot sell more than you own.
-3. Use Pause prices and Resume prices to control the simulated price updates.
-4. Watch the holdings table, summary cards, charts, and transaction history update.
-5. Set the concentration threshold in the Portfolio Concentration panel. Any asset above the threshold is listed; the setting applies for the current session.
-6. Use Sell All Holdings to close every position at its current price. A confirmation dialog appears before anything is sold.
+1. Enter a symbol, optional asset name, quantity, and price; the name defaults to the symbol for a new asset.
+2. Click Buy or Sell. Quantity and price must be positive, and you cannot sell more than you own.
+3. Use Pause prices and Resume prices to control simulated updates.
+4. Watch the table, summary cards, charts, and history update. Use Price Alerts to set an upward or downward target for a holding; each alert triggers once, shows a notification, and stays listed until removed.
+5. Set the concentration threshold; assets above it are listed. The setting applies for this session.
+6. Use Sell All Holdings to close every position at its current price after a confirmation dialog.
 
-The app saves the portfolio after trades and when the window closes.
+Use Export CSV to choose a location and save the summary, holdings, allocation, and transactions as a UTF-8 CSV with a byte-order mark for spreadsheet software. The app saves changes after trades and when the window closes.
 
 ## Screenshots
 
