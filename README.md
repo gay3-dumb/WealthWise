@@ -82,6 +82,10 @@ Use Export CSV to choose a location and save the summary, holdings, allocation, 
 
 ![Portfolio with assets](screenshots/portfolio-with-assets.png)
 
+### Price alert dialog
+
+![Price alert dialog](screenshots/price-alert-dialog.png)
+
 ### Sell All confirmation
 
 ![Sell All confirmation](screenshots/sell-all-confirmation.png)
