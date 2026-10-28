@@ -38,6 +38,7 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Window;
@@ -85,7 +86,7 @@ public class DashboardController {
     @FXML private TableColumn<Holding, Number> colQty, colAvg, colPrice, colValue, colAlloc, colPL, colRet;
     // concentration
     @FXML private Spinner<Integer> thresholdSpinner;
-    @FXML private Label concentrationStatusLabel;
+    @FXML private Text concentrationStatusLabel;
     @FXML private ListView<ConcentrationAnalyzer.ConcentrationWarning> warningList;
     // history + charts
     @FXML private ListView<String> historyList;
@@ -125,6 +126,7 @@ public class DashboardController {
 
         setupTable();
         setupConcentrationPanel();
+        setupHistoryList();
         valueChart.getData().add(valueSeries);
         alertService.setTriggerListener(
                 alert -> Platform.runLater(() -> handleTriggeredAlert(alert)));
@@ -142,6 +144,8 @@ public class DashboardController {
     // ---------------- table setup ----------------
 
     private void setupTable() {
+        // Share the column space evenly so the table has no dead width.
+        holdingsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         colSymbol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().getSymbol()));
         colName.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().getName()));
         colQty.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().getQuantity()));
@@ -201,6 +205,22 @@ public class DashboardController {
     }
 
     // ---------------- concentration panel setup ----------------
+
+    private void setupHistoryList() {
+        historyList.setCellFactory(list -> {
+            ListCell<String> cell = new ListCell<>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    setText(empty ? null : item);
+                }
+            };
+            // The history column is narrow, so wrap entries instead of clipping them.
+            cell.setWrapText(true);
+            cell.prefWidthProperty().bind(list.widthProperty().subtract(24));
+            return cell;
+        });
+    }
 
     private void setupConcentrationPanel() {
         thresholdSpinner.setValueFactory(

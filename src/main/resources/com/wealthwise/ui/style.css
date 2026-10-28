@@ -19,6 +19,7 @@
 .toolbar-button:hover { -fx-background-color: #eef3f8; }
 
 .section-title { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #1b3a5c; }
+.section-title-text { -fx-font-size: 15px; -fx-font-weight: bold; -fx-fill: #1b3a5c; }
 
 .alert-notification {
     -fx-background-color: #fff7e6;
@@ -46,16 +47,24 @@
 .card-title { -fx-font-size: 11px; -fx-text-fill: #8a97a8; -fx-font-weight: bold; }
 .card-value { -fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #1b3a5c; }
 
-.side-panel { -fx-background-color: white; -fx-background-radius: 0 12 12 0; }
+.side-panel { -fx-background-color: white; -fx-background-radius: 10; }
 
 .side-scroll {
     -fx-background-color: white;
     -fx-background-insets: 0;
-    -fx-background-radius: 0 12 12 0;
+    -fx-background-radius: 10;
     -fx-padding: 0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 8, 0, 0, 2);
 }
-.side-scroll > .viewport { -fx-background-color: white; }
+.side-scroll > .viewport { -fx-background-color: white; -fx-background-radius: 10; }
 .side-scroll > .scroll-bar:vertical { -fx-background-color: transparent; }
+
+.workspace-panel {
+    -fx-background-color: white;
+    -fx-background-radius: 10;
+    -fx-padding: 14;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 8, 0, 0, 2);
+}
 
 .buy-button {
     -fx-background-color: #1f9d55; -fx-text-fill: white; -fx-font-weight: bold;
@@ -88,19 +97,35 @@
 }
 .sellall-button:hover { -fx-background-color: #fdeaea; }
 
-.concentration-panel {
-    -fx-background-color: #f8fafc;
-    -fx-border-color: #dfe6ef;
-    -fx-border-radius: 8;
-    -fx-background-radius: 8;
-    -fx-padding: 10;
+.concentration-section {
+    -fx-border-color: #e2e8f0 transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 12 0 0 0;
 }
-.concentration-panel .section-title { -fx-font-size: 13px; }
 
 .concentration-status { -fx-font-size: 12px; }
-.concentration-status.concentration-neutral { -fx-text-fill: #6b7a8c; }
-.concentration-status.concentration-ok { -fx-text-fill: #1f9d55; }
-.concentration-status.concentration-warning { -fx-text-fill: #b83535; -fx-font-weight: bold; }
+.concentration-status.concentration-neutral { -fx-fill: #6b7a8c; }
+.concentration-status.concentration-ok { -fx-fill: #1f9d55; }
+.concentration-status.concentration-warning { -fx-fill: #b83535; -fx-font-weight: bold; }
+
+.history-list {
+    -fx-background-color: white;
+    -fx-border-color: #dfe6ef;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+.history-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #1b3a5c;
+    -fx-font-size: 12px;
+    -fx-padding: 5 6 5 6;
+}
+.history-list .list-cell:filled:hover { -fx-background-color: #f4f8fc; }
+.history-list .list-cell:filled:selected {
+    -fx-background-color: #e6f0fa;
+    -fx-text-fill: #1b3a5c;
+}
+.history-list .scroll-bar:horizontal { -fx-opacity: 0; -fx-max-height: 0; -fx-pref-height: 0; }
 
 .warning-list {
     -fx-background-color: #fdf3f3;
@@ -115,6 +140,7 @@
     -fx-padding: 3 6 3 6;
 }
 .warning-list .list-cell:filled:hover { -fx-background-color: #f8e3e3; }
+.warning-list .scroll-bar:horizontal { -fx-opacity: 0; -fx-max-height: 0; -fx-pref-height: 0; }
 
 .alerts-dialog {
     -fx-background-color: #f4f6fa;

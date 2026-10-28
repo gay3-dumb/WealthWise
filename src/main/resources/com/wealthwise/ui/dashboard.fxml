@@ -17,6 +17,7 @@
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Text?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.wealthwise.ui.DashboardController" styleClass="root-pane">
@@ -64,72 +65,88 @@
         </VBox>
     </top>
 
-    <!-- ============ LEFT: add investment / buy-sell form ============ -->
-    <left>
-        <ScrollPane fx:id="sideScroll" fitToWidth="true" hbarPolicy="NEVER"
-                    vbarPolicy="AS_NEEDED" prefWidth="260" styleClass="side-scroll">
-            <VBox fx:id="sidePanel" spacing="10" styleClass="side-panel" prefWidth="260">
-                <padding><Insets top="12" right="16" bottom="12" left="20"/></padding>
-                <Label text="Record a Trade" styleClass="section-title"/>
-                <Label text="Symbol (e.g. AAPL)"/>
-                <TextField fx:id="symbolField" promptText="AAPL"/>
-                <Label text="Asset name (new assets)"/>
-                <TextField fx:id="nameField" promptText="Apple Inc."/>
-                <Label text="Quantity"/>
-                <TextField fx:id="quantityField" promptText="10"/>
-                <Label text="Price per unit"/>
-                <TextField fx:id="priceField" promptText="150.00"/>
-                <HBox spacing="10">
-                    <Button text="Buy" onAction="#onBuy" styleClass="buy-button" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
-                    <Button text="Sell" onAction="#onSell" styleClass="sell-button" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
-                </HBox>
-                <Button text="Sell All Holdings" onAction="#onSellAll" styleClass="sellall-button" maxWidth="Infinity"/>
-                <Label fx:id="messageLabel" wrapText="true" styleClass="message-label"/>
-                <VBox spacing="6" styleClass="concentration-panel">
-                    <Label text="Portfolio Concentration" styleClass="section-title"/>
-                    <HBox spacing="6" alignment="CENTER_LEFT">
-                        <Label text="Warn above"/>
-                        <Spinner fx:id="thresholdSpinner" prefWidth="72" editable="true"/>
-                        <Label text="\%"/>
-                    </HBox>
-                    <Label fx:id="concentrationStatusLabel" wrapText="true"
-                           styleClass="concentration-status" text="No holdings to analyze yet."/>
-                    <ListView fx:id="warningList" styleClass="warning-list"
-                              prefHeight="96" minHeight="40" visible="false" managed="false"/>
-                </VBox>
-                <Label text="Transaction history" styleClass="section-title"/>
-                <ListView fx:id="historyList" VBox.vgrow="ALWAYS"/>
-            </VBox>
-        </ScrollPane>
-    </left>
-
-    <!-- ============ CENTER: holdings table + charts ============ -->
+    <!-- ============ CENTER: trade | concentration | holdings | history, charts below ============ -->
     <center>
-        <VBox spacing="12">
-            <padding><Insets top="8" right="20" bottom="12" left="12"/></padding>
-            <Label text="Holdings" styleClass="section-title"/>
-            <TableView fx:id="holdingsTable" VBox.vgrow="ALWAYS">
-                <columns>
-                    <TableColumn fx:id="colSymbol" text="Symbol" prefWidth="75"/>
-                    <TableColumn fx:id="colName" text="Name" prefWidth="125"/>
-                    <TableColumn fx:id="colQty" text="Qty" prefWidth="60"/>
-                    <TableColumn fx:id="colAvg" text="Avg Buy" prefWidth="85"/>
-                    <TableColumn fx:id="colPrice" text="Price" prefWidth="85"/>
-                    <TableColumn fx:id="colValue" text="Value" prefWidth="95"/>
-                    <TableColumn fx:id="colAlloc" text="Allocation %" prefWidth="95"/>
-                    <TableColumn fx:id="colPL" text="P/L" prefWidth="85"/>
-                    <TableColumn fx:id="colRet" text="Return" prefWidth="75"/>
-                </columns>
-            </TableView>
-            <HBox spacing="12" VBox.vgrow="ALWAYS">
-                <LineChart fx:id="valueChart" title="Portfolio value (live)" createSymbols="false"
-                           legendVisible="false" animated="false" HBox.hgrow="ALWAYS">
-                    <xAxis><CategoryAxis fx:id="timeAxis" label="Time"/></xAxis>
-                    <yAxis><NumberAxis fx:id="valueAxis" forceZeroInRange="false" label="Value"/></yAxis>
-                </LineChart>
-                <PieChart fx:id="allocationChart" title="Allocation" legendVisible="true"
-                          animated="false" prefWidth="320"/>
-            </HBox>
-        </VBox>
+        <HBox spacing="12" styleClass="workspace">
+            <padding><Insets top="8" right="16" bottom="16" left="16"/></padding>
+
+            <!-- 1. Record a Trade: same width and contents, now full height -->
+            <ScrollPane fx:id="sideScroll" fitToWidth="true" hbarPolicy="NEVER"
+                        vbarPolicy="AS_NEEDED" prefWidth="260" minWidth="240" maxWidth="270"
+                        styleClass="side-scroll">
+                <VBox fx:id="sidePanel" spacing="10" styleClass="side-panel" prefWidth="260">
+                    <padding><Insets top="14" right="16" bottom="14" left="16"/></padding>
+                    <Label text="Record a Trade" styleClass="section-title"/>
+                    <Label text="Symbol (e.g. AAPL)"/>
+                    <TextField fx:id="symbolField" promptText="AAPL"/>
+                    <Label text="Asset name (new assets)"/>
+                    <TextField fx:id="nameField" promptText="Apple Inc."/>
+                    <Label text="Quantity"/>
+                    <TextField fx:id="quantityField" promptText="10"/>
+                    <Label text="Price per unit"/>
+                    <TextField fx:id="priceField" promptText="150.00"/>
+                    <HBox spacing="10">
+                        <Button text="Buy" onAction="#onBuy" styleClass="buy-button" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                        <Button text="Sell" onAction="#onSell" styleClass="sell-button" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                    <Button text="Sell All Holdings" onAction="#onSellAll" styleClass="sellall-button" maxWidth="Infinity"/>
+                    <Label fx:id="messageLabel" wrapText="true" styleClass="message-label"/>
+
+                    <!-- Portfolio Concentration sits directly below Record a Trade -->
+                    <VBox spacing="8" styleClass="concentration-section">
+                        <Text text="Portfolio Concentration" styleClass="section-title-text"
+                              wrappingWidth="185"/>
+                        <Label text="Warn above"/>
+                        <HBox spacing="6" alignment="CENTER_LEFT">
+                            <Spinner fx:id="thresholdSpinner" prefWidth="72" editable="true"/>
+                            <Label text="\%"/>
+                        </HBox>
+                        <Text fx:id="concentrationStatusLabel" styleClass="concentration-status"
+                              wrappingWidth="185" text="No holdings to analyze yet."/>
+                        <ListView fx:id="warningList" styleClass="warning-list" prefHeight="120"
+                                  minHeight="40" visible="false" managed="false"/>
+                    </VBox>
+                </VBox>
+            </ScrollPane>
+
+            <VBox spacing="12" HBox.hgrow="ALWAYS">
+                <!-- Holdings takes the center; transaction history keeps its own scrolling on the right -->
+                <HBox spacing="12" VBox.vgrow="ALWAYS" prefHeight="250" minHeight="180">
+                    <VBox spacing="10" styleClass="workspace-panel" HBox.hgrow="ALWAYS" minWidth="360">
+                        <Label text="Holdings" styleClass="section-title"/>
+                        <TableView fx:id="holdingsTable" VBox.vgrow="ALWAYS" minHeight="120">
+                            <columns>
+                                <TableColumn fx:id="colSymbol" text="Symbol" prefWidth="62"/>
+                                <TableColumn fx:id="colName" text="Name" prefWidth="110"/>
+                                <TableColumn fx:id="colQty" text="Qty" prefWidth="55"/>
+                                <TableColumn fx:id="colAvg" text="Avg Buy" prefWidth="78"/>
+                                <TableColumn fx:id="colPrice" text="Price" prefWidth="78"/>
+                                <TableColumn fx:id="colValue" text="Value" prefWidth="88"/>
+                                <TableColumn fx:id="colAlloc" text="Allocation %" prefWidth="88"/>
+                                <TableColumn fx:id="colPL" text="P/L" prefWidth="78"/>
+                                <TableColumn fx:id="colRet" text="Return" prefWidth="68"/>
+                            </columns>
+                        </TableView>
+                    </VBox>
+
+                    <VBox spacing="10" styleClass="workspace-panel"
+                          prefWidth="280" minWidth="230" maxWidth="340">
+                        <Label text="Transaction history" styleClass="section-title"/>
+                        <ListView fx:id="historyList" styleClass="history-list" VBox.vgrow="ALWAYS"/>
+                    </VBox>
+                </HBox>
+
+                <!-- Charts keep their place under Holdings and Transaction history -->
+                <HBox spacing="12" VBox.vgrow="ALWAYS" prefHeight="250" minHeight="170">
+                    <LineChart fx:id="valueChart" title="Portfolio value (live)" createSymbols="false"
+                               legendVisible="false" animated="false" HBox.hgrow="ALWAYS">
+                        <xAxis><CategoryAxis fx:id="timeAxis" label="Time"/></xAxis>
+                        <yAxis><NumberAxis fx:id="valueAxis" forceZeroInRange="false" label="Value"/></yAxis>
+                    </LineChart>
+                    <PieChart fx:id="allocationChart" title="Allocation" legendVisible="true"
+                              animated="false" prefWidth="300" minWidth="220" maxWidth="340"/>
+                </HBox>
+            </VBox>
+        </HBox>
     </center>
 </BorderPane>
