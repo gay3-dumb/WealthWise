@@ -33,7 +33,7 @@ public class Main extends Application {
         }
 
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/wealthwise/ui/dashboard.fxml"));
-        Scene scene = new Scene(loader.load(), 1100, 720);
+        Scene scene = new Scene(loader.load(), 1400, 700);
         scene.getStylesheets().add(getClass().getResource("/com/wealthwise/ui/style.css").toExternalForm());
 
         controller = loader.getController();
