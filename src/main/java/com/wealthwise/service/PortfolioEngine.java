@@ -130,6 +130,21 @@ public class PortfolioEngine {
         transactions.addAll(savedTransactions);
     }
 
+    /**
+     * Replace the portfolio with an earlier snapshot (used by undo). Holdings are copied so the
+     * snapshot itself can never be changed by later price updates.
+     */
+    public synchronized void restoreState(Collection<Holding> savedHoldings,
+                                          Collection<Transaction> savedTransactions) {
+        holdings.clear();
+        transactions.clear();
+        for (Holding h : savedHoldings) {
+            holdings.put(h.getSymbol(), new Holding(h.getSymbol(), h.getName(), h.getQuantity(),
+                    h.getAvgBuyPrice(), h.getCurrentPrice()));
+        }
+        transactions.addAll(savedTransactions);
+    }
+
     // ---------- helpers ----------
 
     private static String normalise(String symbol) throws PortfolioException {

@@ -18,6 +18,18 @@
 }
 .toolbar-button:hover { -fx-background-color: #eef3f8; }
 
+.undo-button {
+    -fx-background-color: white;
+    -fx-border-color: #c8d3df;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-text-fill: #1b3a5c;
+    -fx-font-size: 11px;
+    -fx-padding: 3 9 3 9;
+    -fx-cursor: hand;
+}
+.undo-button:hover { -fx-background-color: #eef3f8; }
+
 .section-title { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #1b3a5c; }
 .section-title-text { -fx-font-size: 15px; -fx-font-weight: bold; -fx-fill: #1b3a5c; }
 
@@ -79,6 +91,12 @@
 
 .message-label.error { -fx-text-fill: #d64545; }
 .message-label.success { -fx-text-fill: #1f9d55; }
+
+.preview-caption { -fx-text-fill: #6b7a8c; -fx-font-size: 11px; }
+.preview-radio { -fx-text-fill: #1b3a5c; -fx-font-size: 11px; }
+.preview-label { -fx-font-size: 12px; }
+.preview-label.preview-neutral { -fx-text-fill: #6b7a8c; }
+.preview-label.preview-hint { -fx-text-fill: #8a97a8; -fx-font-style: italic; }
 
 .positive { -fx-text-fill: #1f9d55; }
 .negative { -fx-text-fill: #d64545; }

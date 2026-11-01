@@ -8,6 +8,7 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.RadioButton?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Spinner?>
 <?import javafx.scene.control.TableColumn?>
@@ -90,6 +91,13 @@
                         <Button text="Sell" onAction="#onSell" styleClass="sell-button" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
                     </HBox>
                     <Button text="Sell All Holdings" onAction="#onSellAll" styleClass="sellall-button" maxWidth="Infinity"/>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Preview for" styleClass="preview-caption"/>
+                        <RadioButton fx:id="previewBuyRadio" text="Buy" selected="true"
+                                     styleClass="preview-radio"/>
+                        <RadioButton fx:id="previewSellRadio" text="Sell" styleClass="preview-radio"/>
+                    </HBox>
+                    <Label fx:id="profitPreviewLabel" wrapText="true" styleClass="preview-label"/>
                     <Label fx:id="messageLabel" wrapText="true" styleClass="message-label"/>
 
                     <!-- Portfolio Concentration sits directly below Record a Trade -->
@@ -131,7 +139,12 @@
 
                     <VBox spacing="10" styleClass="workspace-panel"
                           prefWidth="280" minWidth="230" maxWidth="340">
-                        <Label text="Transaction history" styleClass="section-title"/>
+                        <HBox spacing="8" alignment="CENTER_LEFT">
+                            <Label text="Transaction history" styleClass="section-title"/>
+                            <HBox HBox.hgrow="ALWAYS"/>
+                            <Button fx:id="undoButton" text="Undo last" onAction="#onUndo"
+                                    styleClass="undo-button" disable="true"/>
+                        </HBox>
                         <ListView fx:id="historyList" styleClass="history-list" VBox.vgrow="ALWAYS"/>
                     </VBox>
                 </HBox>
