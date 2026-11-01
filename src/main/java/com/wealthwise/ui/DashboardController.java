@@ -473,6 +473,36 @@ public class DashboardController {
     }
 
     @FXML
+    private void onOpenStrategyLab() {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/wealthwise/ui/strategy-lab.fxml"));
+            DialogPane pane = loader.load();
+            pane.getStylesheets().add(
+                    getClass().getResource("/com/wealthwise/ui/style.css").toExternalForm());
+
+            Dialog<Void> dialog = new Dialog<>();
+            dialog.setTitle("Strategy Lab");
+            dialog.setDialogPane(pane);
+            dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+            dialog.setResizable(true);
+            Window owner = alertsButton.getScene() == null
+                    ? null
+                    : alertsButton.getScene().getWindow();
+            if (owner != null) {
+                dialog.initOwner(owner);
+                dialog.initModality(Modality.WINDOW_MODAL);
+            }
+
+            StrategyLabController labController = loader.getController();
+            labController.setup(engine);
+            dialog.showAndWait();
+        } catch (IOException | RuntimeException e) {
+            showMessage("Could not open Strategy Lab: " + e.getMessage(), true);
+        }
+    }
+
+    @FXML
     private void onDismissNotifications() {
         notifications.clear();
         notificationLabel.setText("");

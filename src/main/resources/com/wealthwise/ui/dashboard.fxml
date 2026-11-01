@@ -34,6 +34,8 @@
                 <Label fx:id="statusLabel" styleClass="status-label"/>
                 <Button fx:id="alertsButton" text="Price Alerts"
                         onAction="#onManageAlerts" styleClass="toolbar-button"/>
+                <Button text="Strategy Lab" onAction="#onOpenStrategyLab"
+                        styleClass="toolbar-button"/>
                 <Button text="Export CSV" onAction="#onExportPortfolio"
                         styleClass="toolbar-button"/>
                 <ToggleButton fx:id="simToggle" text="Pause prices" onAction="#onToggleSimulation"/>
