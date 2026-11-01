@@ -9,7 +9,10 @@ import com.wealthwise.price.PriceSimulator;
 import com.wealthwise.service.ConcentrationAnalyzer;
 import com.wealthwise.service.PortfolioEngine;
 import com.wealthwise.service.PortfolioException;
+import com.wealthwise.service.PortfolioSnapshot;
 import com.wealthwise.service.PriceAlertService;
+import com.wealthwise.service.TradePreview;
+import com.wealthwise.service.UndoManager;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
@@ -27,6 +30,7 @@ import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
@@ -35,6 +39,7 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -57,6 +62,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -72,6 +78,7 @@ public class DashboardController {
     @FXML private Label totalValueLabel, investedLabel, profitLossLabel, returnLabel, statusLabel, messageLabel;
     // toolbar + notifications
     @FXML private Button alertsButton;
+    @FXML private Button undoButton;
     @FXML private HBox notificationBar;
     @FXML private Label notificationLabel;
     // scrollable sidebar
@@ -79,6 +86,8 @@ public class DashboardController {
     @FXML private VBox sidePanel;
     // form
     @FXML private TextField symbolField, nameField, quantityField, priceField;
+    @FXML private RadioButton previewBuyRadio, previewSellRadio;
+    @FXML private Label profitPreviewLabel;
     @FXML private ToggleButton simToggle;
     // table
     @FXML private TableView<Holding> holdingsTable;
@@ -98,6 +107,9 @@ public class DashboardController {
     private PriceAlertService alertService;
     private PriceSimulator simulator;
     private ConcentrationAnalyzer analyzer = new ConcentrationAnalyzer();
+    private final UndoManager undoManager = new UndoManager();
+    private final ToggleGroup previewActionGroup = new ToggleGroup();
+    private Tooltip undoTooltip;
     private Map<String, ConcentrationAnalyzer.Allocation> allocationsBySymbol = Map.of();
     private int thresholdValue = (int) ConcentrationAnalyzer.DEFAULT_THRESHOLD_PERCENT;
     private Dialog<Void> alertsDialog;
@@ -127,10 +139,18 @@ public class DashboardController {
         setupTable();
         setupConcentrationPanel();
         setupHistoryList();
+        setupProfitPreview();
         valueChart.getData().add(valueSeries);
         alertService.setTriggerListener(
                 alert -> Platform.runLater(() -> handleTriggeredAlert(alert)));
         updateAlertSummary();
+
+        // Step 3: restore the undo history saved by earlier sessions.
+        try {
+            undoManager.load(db.loadUndoSnapshots());
+        } catch (SQLException e) {
+            showMessage("Could not load undo history: " + e.getMessage(), true);
+        }
 
         refreshAll();
 
@@ -205,6 +225,18 @@ public class DashboardController {
     }
 
     // ---------------- concentration panel setup ----------------
+
+    private void setupProfitPreview() {
+        previewBuyRadio.setToggleGroup(previewActionGroup);
+        previewSellRadio.setToggleGroup(previewActionGroup);
+        previewBuyRadio.setSelected(true);
+        previewActionGroup.selectedToggleProperty().addListener(
+                (obs, oldToggle, newToggle) -> updateProfitPreview());
+        symbolField.textProperty().addListener((obs, oldText, newText) -> updateProfitPreview());
+        quantityField.textProperty().addListener((obs, oldText, newText) -> updateProfitPreview());
+        priceField.textProperty().addListener((obs, oldText, newText) -> updateProfitPreview());
+        updateProfitPreview();
+    }
 
     private void setupHistoryList() {
         historyList.setCellFactory(list -> {
@@ -300,7 +332,7 @@ public class DashboardController {
         }
 
         Alert alert = new Alert(Alert.AlertType.WARNING,
-                String.format("This will sell ALL %d holdings at their current prices (total value %,.2f). This cannot be undone.",
+                String.format("This will sell ALL %d holdings at their current prices (total value %,.2f). You can reverse it with Undo.",
                         current.size(), engine.getTotalValue()),
                 ButtonType.OK, ButtonType.CANCEL);
         alert.setTitle("Sell all holdings");
@@ -308,13 +340,20 @@ public class DashboardController {
 
         Optional<ButtonType> result = alert.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
+            PortfolioSnapshot before = PortfolioSnapshot.capture(
+                    "Sell all holdings", engine.getHoldings(), engine.getTransactions());
+            boolean soldAny = false;
             try {
                 for (Holding h : current) {
                     engine.sell(h.getSymbol(), h.getQuantity(), h.getCurrentPrice());
+                    soldAny = true;
                 }
                 showMessage("Sold all holdings.", false);
             } catch (PortfolioException e) {
                 showMessage(e.getMessage(), true);
+            }
+            if (soldAny) {
+                undoManager.record(before);
             }
             refreshAll();
             saveAsync();
@@ -326,19 +365,42 @@ public class DashboardController {
             String symbol = symbolField.getText();
             double qty = parseNumber(quantityField.getText(), "Quantity");
             double price = parseNumber(priceField.getText(), "Price");
+            String sym = symbol == null ? "" : symbol.trim().toUpperCase(Locale.ROOT);
+
+            // Capture the state before the trade so Undo can restore it exactly.
+            PortfolioSnapshot before = PortfolioSnapshot.capture(
+                    (isBuy ? "Buy " : "Sell ") + qty + " " + sym,
+                    engine.getHoldings(), engine.getTransactions());
 
             if (isBuy) {
                 engine.buy(symbol, nameField.getText(), qty, price);
             } else {
                 engine.sell(symbol, qty, price);
             }
-            showMessage((isBuy ? "Bought " : "Sold ") + qty + " " + symbol.trim().toUpperCase(), false);
+            undoManager.record(before);
+            showMessage((isBuy ? "Bought " : "Sold ") + qty + " " + sym, false);
             clearForm();
             refreshAll();
             saveAsync();
         } catch (PortfolioException e) {
             showMessage(e.getMessage(), true);
         }
+    }
+
+    @FXML
+    private void onUndo() {
+        PortfolioSnapshot snapshot = undoManager.undo();
+        if (snapshot == null) {
+            updateUndoButton();
+            showMessage("There is nothing to undo.", true);
+            return;
+        }
+        // Restoring a snapshot never goes through the trade methods, so it cannot create a
+        // new undo entry of its own.
+        engine.restoreState(snapshot.getHoldings(), snapshot.getTransactions());
+        refreshAll();
+        showMessage("Undid " + snapshot.getLabel().toLowerCase(Locale.ROOT) + ".", false);
+        saveAsync();
     }
 
     /** Input validation for text fields: must be a valid number. */
@@ -567,6 +629,76 @@ public class DashboardController {
         if (alertsDialogController != null) {
             alertsDialogController.refreshLiveData();
         }
+        updateProfitPreview();
+        updateUndoButton();
+    }
+
+    /**
+     * Recomputes the inline projection from the current form values. This only reads the
+     * portfolio; it never records a trade or changes any data.
+     */
+    private void updateProfitPreview() {
+        if (profitPreviewLabel == null || engine == null) {
+            return;
+        }
+        Transaction.Type action = previewSellRadio != null && previewSellRadio.isSelected()
+                ? Transaction.Type.SELL
+                : Transaction.Type.BUY;
+        TradePreview preview = TradePreview.project(
+                engine.getHoldings(), action, symbolField.getText(),
+                parsePreviewNumber(quantityField.getText()),
+                parsePreviewNumber(priceField.getText()));
+
+        profitPreviewLabel.getStyleClass().removeAll(
+                "positive", "negative", "preview-neutral", "preview-hint");
+        if (!preview.isAvailable()) {
+            profitPreviewLabel.setText(preview.getHint());
+            profitPreviewLabel.getStyleClass().add("preview-hint");
+            return;
+        }
+
+        double amount = preview.getProjectedProfitLoss();
+        String formatted = String.format(Locale.ROOT, "₹%,.2f", Math.abs(amount));
+        switch (preview.getStatus()) {
+            case PROFIT -> {
+                profitPreviewLabel.setText("Projected portfolio P&L: +" + formatted + " profit");
+                profitPreviewLabel.getStyleClass().add("positive");
+            }
+            case LOSS -> {
+                profitPreviewLabel.setText("Projected portfolio P&L: -" + formatted + " loss");
+                profitPreviewLabel.getStyleClass().add("negative");
+            }
+            default -> {
+                profitPreviewLabel.setText("Projected portfolio P&L: ₹0.00 — break-even");
+                profitPreviewLabel.getStyleClass().add("preview-neutral");
+            }
+        }
+    }
+
+    private static double parsePreviewNumber(String text) {
+        if (text == null || text.isBlank()) {
+            return Double.NaN;
+        }
+        try {
+            return Double.parseDouble(text.trim());
+        } catch (NumberFormatException e) {
+            return Double.NaN;
+        }
+    }
+
+    /** The Undo button is only usable while the undo stack has an entry. */
+    private void updateUndoButton() {
+        boolean canUndo = undoManager.canUndo();
+        undoButton.setDisable(!canUndo);
+        String text = canUndo
+                ? "Undo " + undoManager.nextActionLabel()
+                : "Nothing to undo";
+        if (undoTooltip == null) {
+            undoTooltip = new Tooltip(text);
+            undoButton.setTooltip(undoTooltip);
+        } else {
+            undoTooltip.setText(text);
+        }
     }
 
     private void updateConcentrationPanel(ConcentrationAnalyzer.ConcentrationResult result,
@@ -631,9 +763,10 @@ public class DashboardController {
         // snapshot on the calling thread, write on the db thread
         List<Holding> holdingsSnapshot = engine.getHoldings();
         List<Transaction> txSnapshot = engine.getTransactions();
+        List<PortfolioSnapshot> undoSnapshot = undoManager.getSnapshots();
         dbExecutor.submit(() -> {
             try {
-                db.saveAll(holdingsSnapshot, txSnapshot);
+                db.saveAll(holdingsSnapshot, txSnapshot, undoSnapshot);
             } catch (SQLException e) {
                 Platform.runLater(() -> showMessage("Could not save: " + e.getMessage(), true));
             }
@@ -645,8 +778,18 @@ public class DashboardController {
         if (simulator != null) {
             simulator.stop();
         }
+        // Let earlier queued writes finish first, otherwise one could run after the final save
+        // and restore a stale portfolio or undo history in the database.
+        dbExecutor.shutdown();
         try {
-            db.saveAll(engine.getHoldings(), engine.getTransactions());
+            if (!dbExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                dbExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        try {
+            db.saveAll(engine.getHoldings(), engine.getTransactions(), undoManager.getSnapshots());
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -655,6 +798,5 @@ public class DashboardController {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        dbExecutor.shutdown();
     }
 }
