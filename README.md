@@ -10,7 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="#features">Features</a>
+  <a href="#features">Features</a> &nbsp; / &nbsp;
+  <a href="#how-it-works">How it works</a>
 </p>
 
 <p align="center">
@@ -51,3 +52,62 @@ Built as a Semester 3 end-semester project for **Advanced Java Programming**. Th
 - **Stay informed.** Price alerts notify you when a holding crosses a target. The concentration panel warns when any asset exceeds a threshold of your portfolio (30% by default, adjustable).
 - **Test before you trust.** Strategy Lab runs thousands of simulated futures in parallel to compare investing strategies.
 - **Keep your data.** Everything is saved automatically to a local SQLite database, and **Export CSV** writes the summary, holdings, allocation and transactions for spreadsheet software.
+
+## How it works
+
+```mermaid
+flowchart LR
+    U["User"] --> UI["JavaFX dashboard<br/>FXML and controllers"]
+    UI --> E["PortfolioEngine<br/>trades, P/L, rules"]
+    UI --> X["Alerts, concentration,<br/>undo, trade preview"]
+    UI --> S["Strategy Lab<br/>StrategyBacktester"]
+    P["PriceSimulator<br/>background thread"] -->|"new prices"| E
+    P -->|"Platform.runLater"| UI
+    S --> W["Worker thread pool"]
+    UI --> Q["Database writer thread"]
+    Q --> D[("SQLite via JDBC")]
+```
+
+The code is split into layers. Each package has one job, and the lower layers know nothing about the screen.
+
+| Layer | Package | Responsibility |
+|---|---|---|
+| Window | `ui`, FXML, CSS | Buttons, tables, charts and dialogs. No business rules. |
+| Model | `model` | `Holding`, `Transaction`, `PriceAlert` |
+| Services | `service` | `PortfolioEngine`, `ConcentrationAnalyzer`, `PriceAlertService`, `TradePreview`, `UndoManager` |
+| Price engine | `price` | `PriceSimulator`, a background price feed |
+| Strategy Lab | `strategy` | `StrategyBacktester` and its configuration and result types |
+| Export | `export` | `PortfolioCsvExporter` |
+| Persistence | `db` | `DatabaseManager`, all JDBC and SQL |
+
+### Threads
+
+| Thread | What it does | Why it is separate |
+|---|---|---|
+| JavaFX Application Thread | Draws and updates the screen | The only thread allowed to touch UI controls |
+| `price-simulator` | Moves prices every 2 seconds, then asks the screen to refresh | Prices keep changing without freezing the window |
+| `db-writer` | Saves the portfolio to SQLite | Disk access never blocks the screen |
+| `strategy-lab-worker` pool | Runs the simulated futures in parallel | Thousands of simulations finish quickly and the window stays responsive |
+
+Background threads never touch the screen directly. They hand results over with `Platform.runLater(...)`. More detail is in the [architecture notes](docs/ARCHITECTURE.md).
+
+### Project structure
+
+```text
+WealthWise/
+├── pom.xml
+├── screenshots/                     images used in this README
+├── docs/                            architecture, usage and Strategy Lab guides
+└── src/
+    ├── main/java/com/wealthwise/
+    │   ├── Main.java                application entry point
+    │   ├── ui/                      controllers for the dashboard, alerts and Strategy Lab
+    │   ├── model/                   Holding, Transaction, PriceAlert
+    │   ├── service/                 portfolio rules, alerts, concentration, undo, trade preview
+    │   ├── price/                   background price simulator
+    │   ├── strategy/                Strategy Lab engine
+    │   ├── export/                  CSV export
+    │   └── db/                      SQLite access through JDBC
+    ├── main/resources/com/wealthwise/ui/   FXML layouts and style.css
+    └── test/java/com/wealthwise/    JUnit 5 tests that mirror the packages above
+```
