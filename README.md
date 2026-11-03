@@ -12,7 +12,8 @@
 <p align="center">
   <a href="#features">Features</a> &nbsp; / &nbsp;
   <a href="#how-it-works">How it works</a> &nbsp; / &nbsp;
-  <a href="#strategy-lab">Strategy Lab</a>
+  <a href="#strategy-lab">Strategy Lab</a> &nbsp; / &nbsp;
+  <a href="#getting-started">Getting started</a>
 </p>
 
 <p align="center">
@@ -138,3 +139,38 @@ With the default settings (100,000 starting cash, 252 days, 10,000 simulations),
 Read it as a trade-off, not a winner: the stop-loss strategy gives up some upside for a smaller worst case and smaller falls, while buy and hold has the highest median and the widest range of outcomes.
 
 The simulations are split into chunks and run on a fixed thread pool, and the same settings always give the same answer (the random seed is fixed). These are simulated futures, not predictions, and fees and taxes are not included. See the full [Strategy Lab guide](docs/STRATEGY_LAB.md).
+
+## Getting started
+
+### Prerequisites
+
+- JDK 21
+- Maven 3.9 or newer
+- No separate database server is needed
+
+### Install and run
+
+```bash
+git clone https://github.com/gay3-dumb/WealthWise.git
+cd WealthWise
+mvn clean install
+mvn javafx:run
+```
+
+No configuration is required. On first launch the app creates `wealthwise.db` in the working directory and loads it automatically on later launches. Maven downloads the dependencies.
+
+### Run the tests
+
+```bash
+mvn test
+```
+
+The suite has more than 80 JUnit 5 tests covering the portfolio rules, concentration analysis, price alerts, undo, trade preview, CSV export and Strategy Lab.
+
+## Documentation
+
+| Guide | What it covers |
+|---|---|
+| [Usage guide](docs/USAGE.md) | A walkthrough of every feature, step by step |
+| [Strategy Lab guide](docs/STRATEGY_LAB.md) | Settings, results, how the simulation works and its limits |
+| [Architecture notes](docs/ARCHITECTURE.md) | Layers, threading model, data flow and database tables |
