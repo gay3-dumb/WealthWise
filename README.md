@@ -11,7 +11,8 @@
 
 <p align="center">
   <a href="#features">Features</a> &nbsp; / &nbsp;
-  <a href="#how-it-works">How it works</a>
+  <a href="#how-it-works">How it works</a> &nbsp; / &nbsp;
+  <a href="#strategy-lab">Strategy Lab</a>
 </p>
 
 <p align="center">
@@ -50,7 +51,7 @@ Built as a Semester 3 end-semester project for **Advanced Java Programming**. Th
 - **Trade with confidence.** Buy and sell with input validation, a weighted-average buy price, and protection against selling more than you own. A **trade preview** shows the projected portfolio profit or loss before you commit, **Undo last** reverses up to 50 actions, and **Sell All** asks for confirmation first.
 - **Watch it move.** A background price simulator updates every 2 seconds (pause and resume at any time). The holdings table shows quantity, prices, value, allocation, P/L and return, next to a live value chart and an allocation pie chart.
 - **Stay informed.** Price alerts notify you when a holding crosses a target. The concentration panel warns when any asset exceeds a threshold of your portfolio (30% by default, adjustable).
-- **Test before you trust.** Strategy Lab runs thousands of simulated futures in parallel to compare investing strategies.
+- **Test before you trust.** [Strategy Lab](#strategy-lab) runs thousands of simulated futures in parallel to compare investing strategies.
 - **Keep your data.** Everything is saved automatically to a local SQLite database, and **Export CSV** writes the summary, holdings, allocation and transactions for spreadsheet software.
 
 ## How it works
@@ -111,3 +112,29 @@ WealthWise/
     ├── main/resources/com/wealthwise/ui/   FXML layouts and style.css
     └── test/java/com/wealthwise/    JUnit 5 tests that mirror the packages above
 ```
+
+## Strategy Lab
+
+Most apps show you what you own. Strategy Lab helps you decide **how to invest** by testing a strategy against thousands of possible futures first. Open it from the **Strategy Lab** button in the toolbar.
+
+![Strategy Lab window with settings and a results table comparing three strategies](screenshots/strategy-lab.png)
+
+Every strategy faces the same random price paths, so the comparison is fair.
+
+| Strategy | What it does |
+|---|---|
+| Buy and hold | Invest all the cash on day 0 and never touch it. The baseline. |
+| Monthly buying | Split the cash into equal instalments and buy one every 21 days. |
+| Trailing stop-loss | Invest everything on day 0, sell all if the price falls 10% from its peak, then stay in cash. |
+
+With the default settings (100,000 starting cash, 252 days, 10,000 simulations), the results look like this:
+
+| Strategy | Worst case (5%) | Median | Best case (95%) | Chance of loss | Avg biggest fall | Beats buy and hold |
+|---|---:|---:|---:|---:|---:|---:|
+| Buy and hold | 70,431 | 104,492 | 154,201 | 42.6% | 22.7% | n/a |
+| Monthly buying | 81,282 | 102,891 | 131,180 | 42.3% | 14.6% | 44.9% |
+| Trailing stop-loss | 89,237 | 97,120 | 133,149 | 60.2% | 10.7% | 42.9% |
+
+Read it as a trade-off, not a winner: the stop-loss strategy gives up some upside for a smaller worst case and smaller falls, while buy and hold has the highest median and the widest range of outcomes.
+
+The simulations are split into chunks and run on a fixed thread pool, and the same settings always give the same answer (the random seed is fixed). These are simulated futures, not predictions, and fees and taxes are not included. See the full [Strategy Lab guide](docs/STRATEGY_LAB.md).
