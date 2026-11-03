@@ -13,7 +13,8 @@
   <a href="#features">Features</a> &nbsp; / &nbsp;
   <a href="#how-it-works">How it works</a> &nbsp; / &nbsp;
   <a href="#strategy-lab">Strategy Lab</a> &nbsp; / &nbsp;
-  <a href="#getting-started">Getting started</a>
+  <a href="#getting-started">Getting started</a> &nbsp; / &nbsp;
+  <a href="#team">Team</a>
 </p>
 
 <p align="center">
@@ -174,3 +175,25 @@ The suite has more than 80 JUnit 5 tests covering the portfolio rules, concentra
 | [Usage guide](docs/USAGE.md) | A walkthrough of every feature, step by step |
 | [Strategy Lab guide](docs/STRATEGY_LAB.md) | Settings, results, how the simulation works and its limits |
 | [Architecture notes](docs/ARCHITECTURE.md) | Layers, threading model, data flow and database tables |
+
+## Team
+
+| Contributor | Main contributions |
+|---|---|
+| [gay3-dumb](https://github.com/gay3-dumb) | Original prototype, Sell All confirmation, Strategy Lab |
+| [Aaraghya](https://github.com/Aaraghya) | Live table refresh fix, concentration analyzer, dashboard layout, undo and trade preview, documentation |
+| [ridhimaprasad5-gif](https://github.com/ridhimaprasad5-gif) | Price alerts, CSV export, dashboard scrolling |
+
+## Limitations
+
+- Prices are simulated, never real market data.
+- The app tracks unrealised profit and loss only. Cash balances, realised gains, fees and taxes are not modelled.
+- It is a single-user desktop app that stores data locally. There are no accounts and no network features.
+- Strategy Lab results are estimates under stated assumptions, not predictions.
+
+## Contributing
+
+1. Create a branch for your change: `git checkout -b feature/<name>`
+2. Make the change and keep it focused.
+3. Run the tests with `mvn test`.
+4. Commit, push, and open a pull request into `main`.
